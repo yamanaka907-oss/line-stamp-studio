@@ -8,13 +8,37 @@ def test_mood_for_expression_matches_expected_categories():
     assert text_overlay.mood_for_expression("怒り") == "impact"
     assert text_overlay.mood_for_expression("照れ") == "shy"
     assert text_overlay.mood_for_expression("眠い") == "calm"
+    assert text_overlay.mood_for_expression("驚き") == "surprise"
+    assert text_overlay.mood_for_expression("びっくり") == "surprise"
+    assert text_overlay.mood_for_expression("困惑") == "playful"
+    assert text_overlay.mood_for_expression("お祝い") == "celebration"
+    assert text_overlay.mood_for_expression("感激") == "celebration"
+    assert text_overlay.mood_for_expression("決意") == "dramatic"
     assert text_overlay.mood_for_expression("未知の表情タグ") == "default"
 
 
+def test_mood_for_expression_rage_takes_priority_over_plain_impact():
+    # 「怒り心頭」は「怒」を含むが impact ではなく、より強い rage に分類されるべき
+    assert text_overlay.mood_for_expression("怒り心頭") == "rage"
+    assert text_overlay.mood_for_expression("怒り") == "impact"
+
+
+def test_mood_for_expression_crying_laughter_goes_to_shy_not_energetic():
+    # 「笑い泣き」は「笑」を含むが energetic ではなく shy に分類されるべき
+    assert text_overlay.mood_for_expression("笑い泣き") == "shy"
+    assert text_overlay.mood_for_expression("笑い") == "energetic"
+
+
 def test_font_path_for_expression_points_to_existing_file():
-    for expression in ["喜び", "怒り", "照れ", "眠い", "謎"]:
+    expressions = ["喜び", "怒り", "怒り心頭", "驚き", "困惑", "お祝い", "決意", "照れ", "眠い", "謎"]
+    for expression in expressions:
         path = text_overlay.font_path_for_expression(expression)
         assert path.exists(), f"font file missing for {expression}: {path}"
+
+
+def test_all_mood_fonts_exist_on_disk():
+    for filename in text_overlay._MOOD_FONTS.values():
+        assert (text_overlay.FONT_DIR / filename).exists(), f"missing font file: {filename}"
 
 
 def test_draw_phrase_skips_empty_phrase():

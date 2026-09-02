@@ -5,8 +5,13 @@ SIL Open Font License 1.1 (OFL) 準拠のオープンソースフォントです
 商用・非商用問わず利用・再配布・改変が可能です（フォント単体を有償販売する場合を除く）。
 ライセンス全文: https://openfontlicense.org/
 
-- KosugiMaru-Regular.ttf   … Kosugi Maru        https://fonts.google.com/specimen/Kosugi+Maru
-- ReggaeOne-Regular.ttf    … Reggae One         https://fonts.google.com/specimen/Reggae+One
-- ZenMaruGothic-Regular.ttf… Zen Maru Gothic    https://fonts.google.com/specimen/Zen+Maru+Gothic
-- Yomogi-Regular.ttf       … Yomogi             https://fonts.google.com/specimen/Yomogi
-- NotoSansJP-Regular.ttf   … Noto Sans JP       https://fonts.google.com/noto/specimen/Noto+Sans+JP
+- KosugiMaru-Regular.ttf    … Kosugi Maru        https://fonts.google.com/specimen/Kosugi+Maru
+- ReggaeOne-Regular.ttf     … Reggae One         https://fonts.google.com/specimen/Reggae+One
+- ZenMaruGothic-Regular.ttf … Zen Maru Gothic    https://fonts.google.com/specimen/Zen+Maru+Gothic
+- Yomogi-Regular.ttf        … Yomogi             https://fonts.google.com/specimen/Yomogi
+- NotoSansJP-Regular.ttf    … Noto Sans JP       https://fonts.google.com/noto/specimen/Noto+Sans+JP
+- YujiSyuku-Regular.ttf     … Yuji Syuku         https://fonts.google.com/specimen/Yuji+Syuku
+- YujiBoku-Regular.ttf      … Yuji Boku          https://fonts.google.com/specimen/Yuji+Boku
+- DelaGothicOne-Regular.ttf … Dela Gothic One    https://fonts.google.com/specimen/Dela+Gothic+One
+- RampartOne-Regular.ttf    … Rampart One        https://fonts.google.com/specimen/Rampart+One
+- HachiMaruPop-Regular.ttf  … Hachi Maru Pop     https://fonts.google.com/specimen/Hachi+Maru+Pop

@@ -92,10 +92,24 @@ streamlit run app.py
 
 画像生成AIに日本語のセリフを直接描かせると文字が崩れやすいため、セリフは常にアプリ側
 （`core/text_overlay.py`、Pillow使用）で確実に描き込みます。表情の文字列をキーワードで
-判定し、雰囲気に合わせて `assets/fonts/` 内のフォントを自動選択します（例: 「怒り」「驚き」→
-インパクト系の Reggae One、「照れ」「悲しみ」→ 繊細な手書き風の Yomogi、「喜び」「感謝」→
-丸みのある Kosugi Maru）。「スタンプ企画・生成」ページのチェックボックスでON/OFFを切り替えられ、
-セリフが空の場合や対応フォントが見つからない場合は自動的にスキップされます。
+判定し、10種類のムードから雰囲気に合ったフォントを自動選択します（`core/text_overlay.py`の
+`_MOOD_FONTS`）:
+
+| ムード | フォント | 主な表情例 |
+|---|---|---|
+| rage（激怒） | Rampart One（グラフィティ風極太） | 怒り心頭 |
+| impact（怒り） | Reggae One（インパクト） | 怒り、ダメ出し |
+| surprise（驚き） | Dela Gothic One（重量感インパクト） | 驚き、びっくり |
+| playful（ポップ） | Hachi Maru Pop（丸ポップ） | 疑問、困惑 |
+| celebration（祝福） | Yuji Syuku（筆文字） | お祝い、祝福、感激、ハート |
+| dramatic（決意） | Yuji Boku（太めの筆文字） | 決意 |
+| shy（繊細） | Yomogi（手書き風） | 照れ、悲しみ、ごめんね、笑い泣き |
+| calm（穏やか） | Zen Maru Gothic（柔らかい丸ゴシック） | 眠い、おやすみ、リラックス |
+| energetic（明るい） | Kosugi Maru（丸ゴシック） | 喜び、笑い、感謝、がんばる |
+| default（標準） | Noto Sans JP | 上記以外 |
+
+「スタンプ企画・生成」ページのチェックボックスでON/OFFを切り替えられ、セリフが空の場合や
+対応フォントが見つからない場合は自動的にスキップされます。
 同梱フォントはすべて Google Fonts の SIL Open Font License 1.1 準拠（詳細は
 `assets/fonts/LICENSE-fonts.txt`）。
 - **自動生成（有料）**: `OPENAI_API_KEY` を設定していれば、ラジオボタンで切り替えてアプリから

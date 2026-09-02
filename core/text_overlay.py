@@ -12,22 +12,32 @@ FONT_DIR = BASE_DIR / "assets" / "fonts"
 
 # 表情の雰囲気ごとに使うフォント。表情の判定は完全一致ではなくキーワード部分一致で行うため、
 # core.config.DEFAULT_EXPRESSIONS にない自由記述の表情（AI生成時）にもある程度対応できる。
+# 目を引くよう、丸ゴシック・インパクト系・筆文字系・ポップ系など幅を持たせている。
 _MOOD_FONTS: dict[str, str] = {
-    "impact": "ReggaeOne-Regular.ttf",  # 怒り・驚きなど強い感情
-    "shy": "Yomogi-Regular.ttf",  # 照れ・悲しみなど繊細な感情
+    "rage": "RampartOne-Regular.ttf",  # 激怒（グラフィティ風の極太フォント）
+    "impact": "ReggaeOne-Regular.ttf",  # 怒り・ダメ出しなど強い感情
+    "surprise": "DelaGothicOne-Regular.ttf",  # 驚き・びっくり（重量感のあるインパクトフォント）
+    "playful": "HachiMaruPop-Regular.ttf",  # 疑問・困惑などポップで愛らしい感情
+    "celebration": "YujiSyuku-Regular.ttf",  # お祝い・祝福など（筆文字風）
+    "dramatic": "YujiBoku-Regular.ttf",  # 決意など力強い場面（太めの筆文字風）
+    "shy": "Yomogi-Regular.ttf",  # 照れ・悲しみなど繊細な感情（手書き風）
     "calm": "ZenMaruGothic-Regular.ttf",  # 眠い・のんびりなど穏やかな感情
     "energetic": "KosugiMaru-Regular.ttf",  # 喜び・元気など明るい感情
     "default": "NotoSansJP-Regular.ttf",
 }
 
+# 辞書の順序 = 判定の優先順位（例:「怒り心頭」は先に rage で判定され、
+# 後段の impact の「怒」キーワードには回らない）。
 _MOOD_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "impact": ("怒", "ダメ", "疑問", "困惑", "驚", "びっくり"),
-    "shy": ("照れ", "悲し", "ごめん", "落ち込", "お願い", "甘え"),
-    "calm": ("眠", "おやすみ", "考え中", "スタンバイ", "リラックス", "ウインク", "クール", "ミステリアス"),
-    "energetic": (
-        "喜", "笑", "やる気", "感謝", "拍手", "ありがとう", "おはよう", "がんばる",
-        "ハート", "お祝い", "応援", "祝福", "決意", "自慢げ", "ときめき", "感激", "了解", "バイバイ",
-    ),
+    "rage": ("怒り心頭",),
+    "impact": ("怒", "ダメ"),
+    "surprise": ("驚", "びっくり"),
+    "playful": ("疑問", "困惑"),
+    "celebration": ("お祝い", "祝福", "感激", "ハート"),
+    "dramatic": ("決意",),
+    "shy": ("照れ", "悲し", "ごめん", "落ち込", "お願い", "甘え", "ウインク", "ときめき", "自慢げ", "笑い泣き"),
+    "calm": ("眠", "おやすみ", "考え中", "スタンバイ", "リラックス", "クール", "ミステリアス"),
+    "energetic": ("喜", "笑", "やる気", "感謝", "拍手", "ありがとう", "おはよう", "がんばる", "応援", "了解", "バイバイ"),
 }
 
 
