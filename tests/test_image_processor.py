@@ -44,6 +44,38 @@ def test_process_for_main_remove_bg_false_still_matches_target_size():
     assert result.size == MAIN_IMAGE_SIZE
 
 
+def test_slice_sheet_splits_into_correct_count_and_reading_order():
+    # 2行×4列のシート。各セルを行/列インデックスをエンコードした色で塗り分けて
+    # 読み順（左上→右へ、行ごとに下へ）が正しいことを検証する。
+    rows, cols = 2, 4
+    cell_size = 50
+    sheet = Image.new("RGBA", (cell_size * cols, cell_size * rows))
+    for r in range(rows):
+        for c in range(cols):
+            color = (r * 50, c * 30, 0, 255)
+            for x in range(c * cell_size, (c + 1) * cell_size):
+                for y in range(r * cell_size, (r + 1) * cell_size):
+                    sheet.putpixel((x, y), color)
+
+    cells = image_processor.slice_sheet(sheet, rows, cols)
+    assert len(cells) == rows * cols
+
+    idx = 0
+    for r in range(rows):
+        for c in range(cols):
+            expected_color = (r * 50, c * 30, 0, 255)
+            assert cells[idx].getpixel((5, 5)) == expected_color
+            idx += 1
+
+
+def test_slice_sheet_cells_cover_full_image_dimensions():
+    sheet = Image.new("RGBA", (400, 200), (1, 2, 3, 255))
+    cells = image_processor.slice_sheet(sheet, rows=2, cols=4)
+    # 各セルはおおよそ同じサイズで、端数は最後の行/列に吸収される
+    assert all(c.width in (100,) for c in cells)
+    assert all(c.height in (100,) for c in cells)
+
+
 def test_load_image_file_reads_uploaded_png_as_rgba():
     buf = io.BytesIO()
     Image.new("RGB", (64, 48), (10, 20, 30)).save(buf, format="PNG")

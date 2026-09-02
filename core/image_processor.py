@@ -48,6 +48,24 @@ def fit_and_pad(image: Image.Image, target_size: tuple[int, int]) -> Image.Image
     return canvas
 
 
+def slice_sheet(image: Image.Image, rows: int, cols: int) -> list[Image.Image]:
+    """グリッド状のシート画像を rows×cols のセルに均等分割し、読み順
+    （左上から右へ、行ごとに下へ）でリストにして返す。"""
+    image = image.convert("RGBA")
+    width, height = image.size
+    cell_w, cell_h = width // cols, height // rows
+
+    cells = []
+    for r in range(rows):
+        for c in range(cols):
+            left = c * cell_w
+            top = r * cell_h
+            right = width if c == cols - 1 else left + cell_w
+            bottom = height if r == rows - 1 else top + cell_h
+            cells.append(image.crop((left, top, right, bottom)))
+    return cells
+
+
 def _prepare(image: Image.Image, remove_bg: bool) -> Image.Image:
     return remove_background(image) if remove_bg else image.convert("RGBA")
 

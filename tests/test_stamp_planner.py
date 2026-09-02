@@ -32,3 +32,29 @@ def test_build_tab_prompt_extends_main_prompt():
     tab_prompt = stamp_planner.build_tab_prompt(character)
     assert tab_prompt.startswith(main_prompt)
     assert tab_prompt != main_prompt
+
+
+def test_grid_dimensions_covers_all_stamp_count_options():
+    # STAMP_COUNT_OPTIONS = [8, 16, 24, 32, 40] は全て割り切れる想定
+    assert stamp_planner.grid_dimensions(8) == (2, 4)
+    for count in [8, 16, 24, 32, 40]:
+        rows, cols = stamp_planner.grid_dimensions(count)
+        assert rows * cols == count
+
+
+def test_grid_dimensions_handles_small_counts():
+    assert stamp_planner.grid_dimensions(1) == (1, 1)
+    assert stamp_planner.grid_dimensions(4) == (2, 2)
+
+
+def test_build_sheet_prompt_mentions_every_panel_expression():
+    character = {"name": "ぽてん", "appearance": "丸い"}
+    batch = [
+        {"expression": "喜び", "pose": "手を振る"},
+        {"expression": "怒り", "pose": "腕組み"},
+    ]
+    prompt = stamp_planner.build_sheet_prompt(character, batch, rows=1, cols=2)
+    assert "喜び" in prompt
+    assert "怒り" in prompt
+    assert "1x2" in prompt
+    assert "2 equal-sized" in prompt

@@ -11,8 +11,14 @@ import streamlit as st
 
 from core.config import MAIN_IMAGE_SIZE, STAMP_COUNT_OPTIONS, STAMP_MAX_SIZE, TAB_IMAGE_SIZE
 from core.image_generator import get_image_backend
-from core.image_processor import load_image_file, process_for_main, process_for_stamp, process_for_tab
-from core.stamp_planner import build_main_prompt, build_tab_prompt, plan_stamp_set
+from core.image_processor import (
+    load_image_file,
+    process_for_main,
+    process_for_stamp,
+    process_for_tab,
+    slice_sheet,
+)
+from core.stamp_planner import build_main_prompt, build_sheet_prompt, build_tab_prompt, grid_dimensions, plan_stamp_set
 from core.storage import get_character, list_characters
 
 IMAGE_TOOL_LINKS = [
@@ -113,52 +119,124 @@ if plan:
         )
 
         st.markdown("**スタンプ本体**")
-        stamp_files = {}
-        for item in edited_plan:
-            idx = item["index"]
-            with st.expander(f"{idx}. {item.get('phrase') or '（セリフなし）'} ／ {item.get('expression', '')}"):
-                st.code(item.get("image_prompt", ""), language=None)
-                stamp_files[idx] = st.file_uploader(
-                    f"スタンプ{idx}の画像をアップロード",
-                    type=["png", "jpg", "jpeg", "webp"],
-                    key=f"upload_stamp_{idx}_{version}",
-                )
+        stamp_mode = st.radio(
+            "スタンプ画像の生成方法",
+            [
+                "🧩 シートでまとめて生成する（推奨・無料枠を節約／キャラクターの統一感が保ちやすい）",
+                "🖼️ 1枚ずつ個別に生成する（従来どおり・生成回数が多くなります）",
+            ],
+            index=0,
+        )
 
-        st.divider()
-        if st.button("✅ アップロード画像を取り込む（背景透過・リサイズ）", type="primary", use_container_width=True):
-            missing = []
-            if main_file is None:
-                missing.append("メイン画像")
-            if tab_file is None:
-                missing.append("タブ画像")
+        if stamp_mode.startswith("🧩"):
+            st.caption(
+                "複数のスタンプの表情・ポーズを1枚の画像にグリッドとしてまとめて生成し、"
+                "アップロード後にアプリ側で自動的に切り分けます。生成回数が大幅に減り、"
+                "同じ生成の中で描かれる分キャラクターの見た目もぶれにくくなります。"
+            )
+            batch_size = st.selectbox("1シートあたりの枚数", [4, 8], index=1)
+            batches = [edited_plan[i : i + batch_size] for i in range(0, len(edited_plan), batch_size)]
+
+            sheet_files = {}
+            for b_idx, batch in enumerate(batches):
+                rows, cols = grid_dimensions(len(batch))
+                labels_text = "、".join(item.get("phrase") or item.get("expression", "") for item in batch)
+                with st.expander(f"シート{b_idx + 1}（{rows}行×{cols}列・{labels_text}）", expanded=(b_idx == 0)):
+                    st.code(build_sheet_prompt(character, batch, rows, cols), language=None)
+                    sheet_files[b_idx] = st.file_uploader(
+                        f"シート{b_idx + 1}をアップロード",
+                        type=["png", "jpg", "jpeg", "webp"],
+                        key=f"upload_sheet_{b_idx}_{version}",
+                    )
+
+            st.divider()
+            if st.button("✅ シートを取り込む（分割・背景透過・リサイズ）", type="primary", use_container_width=True):
+                missing = []
+                if main_file is None:
+                    missing.append("メイン画像")
+                if tab_file is None:
+                    missing.append("タブ画像")
+                for b_idx in range(len(batches)):
+                    if sheet_files.get(b_idx) is None:
+                        missing.append(f"シート{b_idx + 1}")
+
+                if missing:
+                    st.warning("次の画像が未アップロードです: " + "、".join(missing))
+                else:
+                    progress = st.progress(0.0, text="画像を処理中...")
+                    total_steps = len(batches) + 2
+
+                    main_image = process_for_main(load_image_file(main_file), remove_bg=remove_bg)
+                    progress.progress(1 / total_steps, text="メイン画像を処理中...")
+                    tab_image = process_for_tab(load_image_file(tab_file), remove_bg=remove_bg)
+                    progress.progress(2 / total_steps, text="タブ画像を処理中...")
+
+                    stamp_images = []
+                    for b_idx, batch in enumerate(batches):
+                        progress.progress(
+                            (b_idx + 3) / total_steps, text=f"シート {b_idx + 1}/{len(batches)} を処理中..."
+                        )
+                        rows, cols = grid_dimensions(len(batch))
+                        cells = slice_sheet(load_image_file(sheet_files[b_idx]), rows, cols)
+                        for item, cell in zip(batch, cells):
+                            stamp_images.append((item, process_for_stamp(cell, remove_bg=remove_bg)))
+
+                    progress.progress(1.0, text="完了！")
+                    st.session_state["generated_assets"] = {
+                        "main": main_image,
+                        "tab": tab_image,
+                        "stamps": stamp_images,
+                    }
+                    st.success("画像の取り込み・分割・背景透過・リサイズが完了しました。")
+        else:
+            stamp_files = {}
             for item in edited_plan:
-                if stamp_files.get(item["index"]) is None:
-                    missing.append(f"スタンプ{item['index']}")
+                idx = item["index"]
+                with st.expander(f"{idx}. {item.get('phrase') or '（セリフなし）'} ／ {item.get('expression', '')}"):
+                    st.code(item.get("image_prompt", ""), language=None)
+                    stamp_files[idx] = st.file_uploader(
+                        f"スタンプ{idx}の画像をアップロード",
+                        type=["png", "jpg", "jpeg", "webp"],
+                        key=f"upload_stamp_{idx}_{version}",
+                    )
 
-            if missing:
-                st.warning("次の画像が未アップロードです: " + "、".join(missing))
-            else:
-                progress = st.progress(0.0, text="画像を処理中...")
-                total_steps = len(edited_plan) + 2
+            st.divider()
+            if st.button("✅ アップロード画像を取り込む（背景透過・リサイズ）", type="primary", use_container_width=True):
+                missing = []
+                if main_file is None:
+                    missing.append("メイン画像")
+                if tab_file is None:
+                    missing.append("タブ画像")
+                for item in edited_plan:
+                    if stamp_files.get(item["index"]) is None:
+                        missing.append(f"スタンプ{item['index']}")
 
-                main_image = process_for_main(load_image_file(main_file), remove_bg=remove_bg)
-                progress.progress(1 / total_steps, text="メイン画像を処理中...")
-                tab_image = process_for_tab(load_image_file(tab_file), remove_bg=remove_bg)
-                progress.progress(2 / total_steps, text="タブ画像を処理中...")
+                if missing:
+                    st.warning("次の画像が未アップロードです: " + "、".join(missing))
+                else:
+                    progress = st.progress(0.0, text="画像を処理中...")
+                    total_steps = len(edited_plan) + 2
 
-                stamp_images = []
-                for i, item in enumerate(edited_plan):
-                    progress.progress((i + 3) / total_steps, text=f"スタンプ {i + 1}/{len(edited_plan)} を処理中...")
-                    img = load_image_file(stamp_files[item["index"]])
-                    stamp_images.append((item, process_for_stamp(img, remove_bg=remove_bg)))
+                    main_image = process_for_main(load_image_file(main_file), remove_bg=remove_bg)
+                    progress.progress(1 / total_steps, text="メイン画像を処理中...")
+                    tab_image = process_for_tab(load_image_file(tab_file), remove_bg=remove_bg)
+                    progress.progress(2 / total_steps, text="タブ画像を処理中...")
 
-                progress.progress(1.0, text="完了！")
-                st.session_state["generated_assets"] = {
-                    "main": main_image,
-                    "tab": tab_image,
-                    "stamps": stamp_images,
-                }
-                st.success("画像の取り込み・背景透過・リサイズが完了しました。")
+                    stamp_images = []
+                    for i, item in enumerate(edited_plan):
+                        progress.progress(
+                            (i + 3) / total_steps, text=f"スタンプ {i + 1}/{len(edited_plan)} を処理中..."
+                        )
+                        img = load_image_file(stamp_files[item["index"]])
+                        stamp_images.append((item, process_for_stamp(img, remove_bg=remove_bg)))
+
+                    progress.progress(1.0, text="完了！")
+                    st.session_state["generated_assets"] = {
+                        "main": main_image,
+                        "tab": tab_image,
+                        "stamps": stamp_images,
+                    }
+                    st.success("画像の取り込み・背景透過・リサイズが完了しました。")
     else:
         if st.button("🖼️ 画像を生成する（メイン・タブ・スタンプ全て）", type="primary", use_container_width=True):
             backend = get_image_backend()

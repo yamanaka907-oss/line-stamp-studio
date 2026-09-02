@@ -92,6 +92,36 @@ def build_tab_prompt(character: dict[str, Any]) -> str:
     return build_main_prompt(character) + ", simple close-up face only, works at very small size"
 
 
+def grid_dimensions(count: int) -> tuple[int, int]:
+    """count枚を並べるのに適した (行数, 列数) を返す。可能な限り正方形に近い約数の組を選ぶ。
+    シート1枚あたりの生成回数（＝無料枠の消費）を抑えつつ、AIが1枚の画像内で
+    描き分けやすいレイアウトにするため。"""
+    if count <= 1:
+        return 1, max(1, count)
+    rows = max(1, round(count**0.5))
+    while rows > 1 and count % rows != 0:
+        rows -= 1
+    cols = count // rows
+    return rows, cols
+
+
+def build_sheet_prompt(character: dict[str, Any], batch: list[dict[str, Any]], rows: int, cols: int) -> str:
+    """複数スタンプ分の表情・ポーズを1枚のグリッドシートとして生成するためのプロンプトを組み立てる。
+    生成後は core.image_processor.slice_sheet() で読み順にセルへ切り出す想定。"""
+    panel_lines = " ".join(
+        f"Panel {i}: expression {item.get('expression', '')}, pose: {item.get('pose', '')}."
+        for i, item in enumerate(batch, start=1)
+    )
+    return (
+        f"A character reference sheet, {rows}x{cols} grid layout with exactly {len(batch)} equal-sized "
+        f"square panels arranged in {rows} rows and {cols} columns (read left-to-right, top-to-bottom), "
+        "thin white gutters between panels, flat-color sticker illustration style, thick clean outline, "
+        f"plain white background per panel, of a character named {character.get('name')}, appearance: "
+        f"{character.get('appearance', '')}. Keep the character's design, proportions, and color palette "
+        f"perfectly consistent across every panel. {panel_lines}"
+    )
+
+
 def plan_stamp_set(
     character: dict[str, Any],
     count: int,
