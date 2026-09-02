@@ -1,5 +1,7 @@
 # LINE Stamp Studio
 
+[![Tests](https://github.com/yamanaka907-oss/line-stamp-studio/actions/workflows/tests.yml/badge.svg)](https://github.com/yamanaka907-oss/line-stamp-studio/actions/workflows/tests.yml)
+
 オリジナルキャラクターの考案から、LINEスタンプ素材（メイン画像・タブ画像・スタンプ本体）の生成、
 背景透過・自動リサイズ、LINE Creators Market申請用テキストの下書き作成、ZIP一括出力までを
 ブラウザだけで行える Streamlit 製 Web アプリのひな形です。
