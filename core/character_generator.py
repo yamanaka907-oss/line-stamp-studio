@@ -41,25 +41,68 @@ def _extract_json(text: str) -> dict[str, Any]:
     return json.loads(match.group(0))
 
 
+# 性格ごとに口調・セリフ例を変える（オフラインモック用）。一覧は core/config.py の
+# PERSONALITY_TRAITS と対応させているが、一致しない値（自由入力等）は _DEFAULT_SPEECH_STYLE を使う。
+_PERSONALITY_SPEECH_STYLES: dict[str, tuple[str, list[str]]] = {
+    "元気いっぱい": (
+        "語尾に「〜だよ」「〜なのだ」をつける、明るく元気な口調。",
+        ["今日もいっしょにがんばろうね！", "えへへ、うれしいのだ〜", "ちょっとひとやすみ、しよ？"],
+    ),
+    "のんびり癒し系": (
+        "「〜だねぇ」「〜なのねぇ」とゆったり伸ばす、癒し系の口調。",
+        ["まあ、のんびりいこうねぇ。", "ふわぁ〜、きもちいいねぇ。", "むりしなくていいんだよぉ。"],
+    ),
+    "ツンデレ": (
+        "「べ、別に〜だし」「〜なんだからね」という、素直になれない口調。",
+        ["べ、別にあんたのためじゃないんだからね！", "…ちょっとだけ、うれしいかも。", "勘違いしないでよね！"],
+    ),
+    "毒舌": (
+        "「〜でしょ」「〜なんだけど」と、遠慮なくズバズバ言う口調。",
+        ["はぁ？それマジで言ってんの？", "まあ、悪くはないんじゃない。", "しっかりしなよ、まったく。"],
+    ),
+    "甘えん坊": (
+        "語尾に「〜だもん」「〜なの」をつける、甘えた口調。",
+        ["ねえねえ、かまってほしいの〜。", "だいすき！ぎゅーして？", "ひとりはさみしいんだもん。"],
+    ),
+    "クールでミステリアス": (
+        "感情を表に出さない、短く落ち着いた口調。",
+        ["……そう。", "興味深いな。", "また会おう。"],
+    ),
+    "おっちょこちょい": (
+        "「〜あわわ」「〜しちゃった」と、あわてん坊な口調。",
+        ["あっ、また転んじゃった…！", "えーっと、えーっと…あわわ！", "だ、大丈夫、たぶん平気！"],
+    ),
+}
+_DEFAULT_SPEECH_STYLE: tuple[str, list[str]] = (
+    "語尾に「〜だよ」「〜なのだ」をつける、親しみやすい口調。",
+    ["今日もいっしょにがんばろうね！", "えへへ、うれしいのだ〜", "ちょっとひとやすみ、しよ？"],
+)
+
+
 def _mock_generate(target_audience: str, motif: str, personality: str, free_note: str) -> dict[str, Any]:
     """APIキー未設定時のオフライン用フォールバック（デモ動作確認向け）。"""
     base_names = ["まる", "ぽて", "ころん", "むぎ", "ふわり", "ぴよ"]
     name = random.choice(base_names) + random.choice(["ちゃん", "くん", "ん"])
+    speech_style, sample_lines = _PERSONALITY_SPEECH_STYLES.get(personality, _DEFAULT_SPEECH_STYLE)
+
+    appearance = (
+        f"{motif}をモチーフにした丸みのあるフォルム。パステルカラーの体で、"
+        f"{personality}な雰囲気が伝わる大きな瞳が特徴。"
+    )
+    if free_note:
+        appearance += f" また「{free_note}」という要望も取り入れている。"
+
     return {
         "name": name,
         "name_reading": name,
         "catchphrase": f"{motif}生まれの{personality}な{name}です！",
-        "appearance": f"{motif}をモチーフにした丸みのあるフォルム。パステルカラーの体で、{personality}な雰囲気が伝わる大きな瞳が特徴。",
+        "appearance": appearance,
         "personality_detail": (
             f"{target_audience}に親しみやすい{personality}な性格。"
             "感情表現が豊かで、見る人を自然と笑顔にする。"
         ),
-        "speech_style": "語尾に「〜だよ」「〜なのだ」をつける、親しみやすい口調。",
-        "sample_lines": [
-            "今日もいっしょにがんばろうね！",
-            "えへへ、うれしいのだ〜",
-            "ちょっとひとやすみ、しよ？",
-        ],
+        "speech_style": speech_style,
+        "sample_lines": list(sample_lines),
         "_offline_mock": True,
     }
 
