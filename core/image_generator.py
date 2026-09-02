@@ -26,8 +26,23 @@ class OpenAIImageBackend(ImageBackend):
         self._client = openai.OpenAI(api_key=api_key)
         self._model = model
 
+    def _size_string_for(self, size: tuple[int, int]) -> str:
+        """要求された縦横比に最も近い、モデルがサポートするサイズ文字列を選ぶ。
+        最終的なピクセルサイズは image_processor.fit_and_pad が調整するため、
+        ここでは向き（正方形・横長・縦長）の指定精度で十分。"""
+        w, h = size
+        if w == h:
+            return "1024x1024"
+        landscape = w > h
+        if self._model == "gpt-image-1":
+            return "1536x1024" if landscape else "1024x1536"
+        if self._model.startswith("dall-e-3"):
+            return "1792x1024" if landscape else "1024x1792"
+        # dall-e-2 等、正方形しかサポートしないモデル向けのフォールバック
+        return "1024x1024"
+
     def generate(self, prompt: str, size: tuple[int, int] = (1024, 1024)) -> Image.Image:
-        kwargs = {"model": self._model, "prompt": prompt, "size": "1024x1024", "n": 1}
+        kwargs = {"model": self._model, "prompt": prompt, "size": self._size_string_for(size), "n": 1}
         if self._model != "gpt-image-1":
             # dall-e-2 / dall-e-3 は response_format を明示しないと url 形式で返るため、
             # 常に b64_json を要求する（gpt-image-1 はこのパラメータ自体を受け付けない）。

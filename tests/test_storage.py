@@ -1,3 +1,5 @@
+import concurrent.futures
+
 from core import storage
 
 
@@ -48,3 +50,16 @@ def test_read_all_survives_corrupted_json_file(monkeypatch, tmp_path):
     monkeypatch.setattr(storage, "CHARACTERS_FILE", characters_file)
 
     assert storage.list_characters() == []
+
+
+def test_concurrent_saves_do_not_lose_writes(monkeypatch, tmp_path):
+    # 複数タブ/セッションから同時に保存しても、read-modify-writeの競合で
+    # 互いの書き込みを消し合わないことを確認する回帰テスト。
+    monkeypatch.setattr(storage, "CHARACTERS_FILE", tmp_path / "characters.json")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        futures = [executor.submit(storage.save_character, {"name": f"キャラ{i}"}) for i in range(20)]
+        for f in futures:
+            f.result()
+
+    assert len(storage.list_characters()) == 20

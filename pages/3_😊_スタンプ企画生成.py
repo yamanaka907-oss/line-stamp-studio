@@ -42,6 +42,10 @@ if st.button("🧠 スタンプ内容を企画する", type="primary", use_conta
     with st.spinner("AIがセリフ・表情・ポーズを企画しています..."):
         plan = plan_stamp_set(character, count, character.get("target_audience", ""))
     st.session_state["stamp_plan"] = plan
+    # data_editor の key を切り替えて、キャラクター/枚数を変えて再企画したときに
+    # 古いプランの編集内容が居座って表示され続けるのを防ぐ（Streamlitは同じkeyの
+    # ウィジェットには新しく渡したvalueではなく前回のウィジェット状態を優先するため）。
+    st.session_state["plan_version"] = st.session_state.get("plan_version", 0) + 1
     st.session_state.pop("generated_assets", None)
 
 plan = st.session_state.get("stamp_plan")
@@ -58,7 +62,7 @@ if plan:
         },
         use_container_width=True,
         num_rows="fixed",
-        key="plan_editor",
+        key=f"plan_editor_{st.session_state.get('plan_version', 0)}",
     )
     st.session_state["stamp_plan"] = edited_plan
 

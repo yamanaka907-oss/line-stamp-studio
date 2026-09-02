@@ -13,59 +13,66 @@ from core.config import CHARACTERS_FILE
 _lock = threading.Lock()
 
 
-def _read_all() -> list[dict[str, Any]]:
+def _read_all_locked() -> list[dict[str, Any]]:
+    """呼び出し側が _lock を保持している前提の内部ヘルパー。"""
     if not CHARACTERS_FILE.exists():
         return []
-    with _lock:
-        try:
-            return json.loads(CHARACTERS_FILE.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return []
+    try:
+        return json.loads(CHARACTERS_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
 
 
-def _write_all(items: list[dict[str, Any]]) -> None:
-    with _lock:
-        CHARACTERS_FILE.write_text(
-            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+def _write_all_locked(items: list[dict[str, Any]]) -> None:
+    """呼び出し側が _lock を保持している前提の内部ヘルパー。"""
+    CHARACTERS_FILE.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def list_characters() -> list[dict[str, Any]]:
-    return sorted(_read_all(), key=lambda c: c.get("created_at", ""), reverse=True)
+    with _lock:
+        items = _read_all_locked()
+    return sorted(items, key=lambda c: c.get("created_at", ""), reverse=True)
 
 
 def get_character(character_id: str) -> dict[str, Any] | None:
-    for c in _read_all():
+    with _lock:
+        items = _read_all_locked()
+    for c in items:
         if c["id"] == character_id:
             return c
     return None
 
 
 def save_character(character: dict[str, Any]) -> dict[str, Any]:
-    items = _read_all()
     character = dict(character)
     character.setdefault("id", str(uuid.uuid4()))
     character.setdefault("created_at", datetime.now(timezone.utc).isoformat())
-    items.append(character)
-    _write_all(items)
+    # 読み込み〜書き込みを1つのロックで囲み、複数タブ/セッションからの同時保存で
+    # 片方の変更がもう片方に上書きされて消える競合状態を防ぐ。
+    with _lock:
+        items = _read_all_locked()
+        items.append(character)
+        _write_all_locked(items)
     return character
 
 
 def update_character(character_id: str, **fields: Any) -> dict[str, Any] | None:
-    items = _read_all()
-    for c in items:
-        if c["id"] == character_id:
-            c.update(fields)
-            c["updated_at"] = datetime.now(timezone.utc).isoformat()
-            _write_all(items)
-            return c
+    with _lock:
+        items = _read_all_locked()
+        for c in items:
+            if c["id"] == character_id:
+                c.update(fields)
+                c["updated_at"] = datetime.now(timezone.utc).isoformat()
+                _write_all_locked(items)
+                return c
     return None
 
 
 def delete_character(character_id: str) -> bool:
-    items = _read_all()
-    remaining = [c for c in items if c["id"] != character_id]
-    if len(remaining) == len(items):
-        return False
-    _write_all(remaining)
+    with _lock:
+        items = _read_all_locked()
+        remaining = [c for c in items if c["id"] != character_id]
+        if len(remaining) == len(items):
+            return False
+        _write_all_locked(remaining)
     return True
