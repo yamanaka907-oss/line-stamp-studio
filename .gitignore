@@ -7,3 +7,4 @@ data/characters.json
 data/generated/*
 !data/generated/.gitkeep
 .streamlit/secrets.toml
+.claude/
