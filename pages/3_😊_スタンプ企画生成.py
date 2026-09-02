@@ -20,6 +20,7 @@ from core.image_processor import (
 )
 from core.stamp_planner import build_main_prompt, build_sheet_prompt, build_tab_prompt, grid_dimensions, plan_stamp_set
 from core.storage import get_character, list_characters
+from core.text_overlay import draw_phrase
 
 IMAGE_TOOL_LINKS = [
     ("Gemini アプリを開く（無料・1日20枚目安）", "https://gemini.google.com/app"),
@@ -52,6 +53,10 @@ with col1:
     count = st.select_slider("スタンプ枚数", options=STAMP_COUNT_OPTIONS, value=8)
     remove_bg = st.checkbox(
         "背景透過を行う（rembg使用・初回はモデル取得のため数十秒かかる場合があります）",
+        value=True,
+    )
+    add_text = st.checkbox(
+        "スタンプにセリフを文字入れする（表情に応じてフォントを自動で変更）",
         value=True,
     )
 with col2:
@@ -91,6 +96,13 @@ if plan:
     main_prompt = st.session_state.get("main_prompt", "")
     tab_prompt = st.session_state.get("tab_prompt", "")
     version = st.session_state.get("plan_version", 0)
+
+    def finalize_stamp(raw_image, item):
+        """背景透過・リサイズし、必要ならセリフを表情に応じたフォントで文字入れする。"""
+        processed = process_for_stamp(raw_image, remove_bg=remove_bg)
+        if add_text:
+            processed = draw_phrase(processed, item.get("phrase", ""), item.get("expression", ""))
+        return processed
 
     st.divider()
     st.subheader("画像の準備")
@@ -179,7 +191,7 @@ if plan:
                         rows, cols = grid_dimensions(len(batch))
                         cells = slice_sheet(load_image_file(sheet_files[b_idx]), rows, cols)
                         for item, cell in zip(batch, cells):
-                            stamp_images.append((item, process_for_stamp(cell, remove_bg=remove_bg)))
+                            stamp_images.append((item, finalize_stamp(cell, item)))
 
                     progress.progress(1.0, text="完了！")
                     st.session_state["generated_assets"] = {
@@ -228,7 +240,7 @@ if plan:
                             (i + 3) / total_steps, text=f"スタンプ {i + 1}/{len(edited_plan)} を処理中..."
                         )
                         img = load_image_file(stamp_files[item["index"]])
-                        stamp_images.append((item, process_for_stamp(img, remove_bg=remove_bg)))
+                        stamp_images.append((item, finalize_stamp(img, item)))
 
                     progress.progress(1.0, text="完了！")
                     st.session_state["generated_assets"] = {
@@ -253,7 +265,7 @@ if plan:
             for i, item in enumerate(edited_plan):
                 progress.progress((i + 3) / total_steps, text=f"スタンプ {i + 1}/{len(edited_plan)} を生成中...")
                 raw = backend.generate(item["image_prompt"], size=STAMP_MAX_SIZE)
-                stamp_images.append((item, process_for_stamp(raw, remove_bg=remove_bg)))
+                stamp_images.append((item, finalize_stamp(raw, item)))
 
             progress.progress(1.0, text="完了！")
             st.session_state["generated_assets"] = {
