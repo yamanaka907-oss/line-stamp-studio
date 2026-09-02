@@ -1,0 +1,5 @@
+# CI・単体テスト専用の最小依存関係。
+# tests/ はオフラインパス（APIキー未設定時のフォールバック）のみを検証するため、
+# anthropic/openai/streamlit/rembg等の重い依存は不要。
+pillow>=10.4
+pytest>=8.0

@@ -1,0 +1,8 @@
+streamlit>=1.38
+anthropic>=0.40
+openai>=1.50
+pillow>=10.4
+rembg>=2.0.59
+onnxruntime>=1.19
+python-dotenv>=1.0
+numpy>=1.26
