@@ -1,3 +1,5 @@
+import io
+
 from PIL import Image
 
 from core import image_processor
@@ -40,3 +42,13 @@ def test_process_for_main_remove_bg_false_still_matches_target_size():
     img = Image.new("RGBA", (300, 300), (1, 2, 3, 255))
     result = image_processor.process_for_main(img, remove_bg=False)
     assert result.size == MAIN_IMAGE_SIZE
+
+
+def test_load_image_file_reads_uploaded_png_as_rgba():
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 48), (10, 20, 30)).save(buf, format="PNG")
+    buf.seek(0)
+
+    loaded = image_processor.load_image_file(buf)
+    assert loaded.mode == "RGBA"
+    assert loaded.size == (64, 48)

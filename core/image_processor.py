@@ -9,6 +9,11 @@ from PIL import Image
 from core.config import MAIN_IMAGE_SIZE, STAMP_MAX_SIZE, TAB_IMAGE_SIZE
 
 
+def load_image_file(file) -> Image.Image:
+    """アップロードされた画像ファイル（ファイルライクオブジェクト）を読み込みRGBA化する。"""
+    return Image.open(file).convert("RGBA")
+
+
 def remove_background(image: Image.Image) -> Image.Image:
     """rembgが利用可能なら背景透過処理を行う。
     未インストール時、またはモデル取得失敗等の実行時エラー時は元画像をそのまま返す。"""

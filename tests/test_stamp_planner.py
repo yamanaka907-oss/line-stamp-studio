@@ -17,3 +17,18 @@ def test_plan_stamp_set_offline_mock_handles_count_larger_than_default_expressio
     character = {"name": "テスト"}
     plan = stamp_planner.plan_stamp_set(character, count=40)
     assert len(plan) == 40
+
+
+def test_build_main_prompt_includes_character_name_and_appearance():
+    character = {"name": "ぽてん", "appearance": "丸くてパステルカラー"}
+    prompt = stamp_planner.build_main_prompt(character)
+    assert "ぽてん" in prompt
+    assert "丸くてパステルカラー" in prompt
+
+
+def test_build_tab_prompt_extends_main_prompt():
+    character = {"name": "ぽてん", "appearance": "丸い"}
+    main_prompt = stamp_planner.build_main_prompt(character)
+    tab_prompt = stamp_planner.build_tab_prompt(character)
+    assert tab_prompt.startswith(main_prompt)
+    assert tab_prompt != main_prompt

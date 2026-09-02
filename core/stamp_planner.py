@@ -77,6 +77,21 @@ def _mock_plan(character: dict[str, Any], count: int) -> list[dict[str, Any]]:
     return plan
 
 
+def build_main_prompt(character: dict[str, Any]) -> str:
+    """メイン画像（240×240）用の画像生成プロンプトを組み立てる。
+    Gemini等の画像生成AIにそのままコピー＆ペーストして使える形式。"""
+    return (
+        f"LINE sticker main icon, cute flat-color illustration of {character.get('name')}, "
+        f"appearance: {character.get('appearance', '')}, friendly smiling pose, thick outline, "
+        "no background, centered"
+    )
+
+
+def build_tab_prompt(character: dict[str, Any]) -> str:
+    """タブ画像（96×74）用の画像生成プロンプトを組み立てる。"""
+    return build_main_prompt(character) + ", simple close-up face only, works at very small size"
+
+
 def plan_stamp_set(
     character: dict[str, Any],
     count: int,

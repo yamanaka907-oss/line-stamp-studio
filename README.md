@@ -2,9 +2,13 @@
 
 [![Tests](https://github.com/yamanaka907-oss/line-stamp-studio/actions/workflows/tests.yml/badge.svg)](https://github.com/yamanaka907-oss/line-stamp-studio/actions/workflows/tests.yml)
 
-オリジナルキャラクターの考案から、LINEスタンプ素材（メイン画像・タブ画像・スタンプ本体）の生成、
+オリジナルキャラクターの考案から、LINEスタンプ素材（メイン画像・タブ画像・スタンプ本体）の企画、
 背景透過・自動リサイズ、LINE Creators Market申請用テキストの下書き作成、ZIP一括出力までを
 ブラウザだけで行える Streamlit 製 Web アプリのひな形です。
+
+画像そのものは、**①各アセット用の画像生成プロンプトをアプリが自動で組み立てて表示し、
+Gemini等の無料画像生成AIに貼り付けて生成した画像をアップロードする**（無料・推奨）か、
+**②OPENAI_API_KEYを設定してアプリから直接自動生成する**（有料）かを選べます。
 
 ## ディレクトリ構成
 
@@ -59,9 +63,21 @@ streamlit run app.py
 本番品質のテキスト・画像を得るには、`.env` に有効なAPIキーを設定してください。
 
 - テキスト生成: [Anthropic API](https://docs.anthropic.com/)（`ANTHROPIC_API_KEY`）
-- 画像生成: OpenAI Images API（`OPENAI_API_KEY`）。他社の画像生成APIを使う場合は
-  `core/image_generator.py` の `ImageBackend` を実装したクラスを追加し、
+- 画像生成（自動生成モード時のみ）: OpenAI Images API（`OPENAI_API_KEY`）。他社の画像生成APIを
+  使う場合は `core/image_generator.py` の `ImageBackend` を実装したクラスを追加し、
   `get_image_backend()` の分岐を変更してください。
+
+### 画像の準備方法（手動アップロード / 自動生成）
+
+「スタンプ企画・生成」ページでは、企画したセリフ・表情・ポーズをもとに `core/stamp_planner.py` が
+各アセット（メイン・タブ・スタンプ1枚ずつ）の画像生成プロンプトを自動で組み立てます。
+
+- **手動アップロード（無料・デフォルト）**: 各プロンプトを `st.code` ブロックからコピーし、
+  ページ内のリンクボタン（Gemini / Leonardo.ai / Bing Image Creator / Ideogram / Canva）から
+  好きな無料画像生成AIを開いて貼り付け、生成した画像を保存してアップロードします。
+  アップロード後は自動で背景透過・規定サイズへのリサイズが行われます。
+- **自動生成（有料）**: `OPENAI_API_KEY` を設定していれば、ラジオボタンで切り替えてアプリから
+  直接一括生成できます。
 
 AI API呼び出し自体が失敗した場合（レート制限・ネットワーク障害・応答形式の不整合など）も、
 各生成関数は自動的にオフラインロジックへフォールバックし、画面には警告メッセージで
@@ -116,8 +132,8 @@ APIキー未設定時のオフラインパスのみを対象にしているた�
 - **DB化**: 現状は `data/characters.json` によるファイル保存です。複数ユーザーでの本番運用時は
   `core/storage.py` の関数群をSQLite/PostgreSQL等に差し替えてください（呼び出し側のインターフェースは
   そのまま使えるよう設計しています）。
-- **画像生成の縦横比**: 現状は正方形（1024×1024）で生成し、`fit_and_pad()` で規定サイズに収める
-  簡易実装です。タブ画像（横長）等でより精度を上げたい場合は、生成時点で近い比率をリクエストするよう
-  `image_generator.py` を拡張してください。
+- **画像生成の縦横比**: 自動生成モードでは `image_generator.py` がメイン（正方形）・タブ（横長）・
+  スタンプ（横長寄り）それぞれの向きに近いプリセットサイズをAPIにリクエストし、最終的に
+  `fit_and_pad()` で規定サイズへ収めます。
 - **レスポンシブ対応**: Streamlitのカラムはビューポート幅に応じて自動的に縦積みへ切り替わります。
   `app.py` に追加したCSSでスマートフォン時の余白・見出しサイズを調整しています。

@@ -1,13 +1,27 @@
-"""ページ3: スタンプ枚数指定 → AIによる企画（セリフ・表情・ポーズ・プロンプト） → 画像生成・加工。"""
+"""ページ3: スタンプ枚数指定 → AIによる企画（セリフ・表情・ポーズ・プロンプト） → 画像の準備・加工。
+
+画像の準備は2通りから選べる:
+- 手動（推奨・無料）: プロンプトをコピーしてLeonardo.ai/Bing Image Creator等に貼り付け、
+  生成した画像を保存してこのページにアップロードする。
+- 自動生成: OPENAI_API_KEY を設定していれば、AI画像生成APIで自動生成する（有料）。
+"""
 from __future__ import annotations
 
 import streamlit as st
 
-from core.config import STAMP_COUNT_OPTIONS
+from core.config import MAIN_IMAGE_SIZE, STAMP_COUNT_OPTIONS, STAMP_MAX_SIZE, TAB_IMAGE_SIZE
 from core.image_generator import get_image_backend
-from core.image_processor import process_for_main, process_for_stamp, process_for_tab
-from core.stamp_planner import plan_stamp_set
+from core.image_processor import load_image_file, process_for_main, process_for_stamp, process_for_tab
+from core.stamp_planner import build_main_prompt, build_tab_prompt, plan_stamp_set
 from core.storage import get_character, list_characters
+
+IMAGE_TOOL_LINKS = [
+    ("Gemini アプリを開く（無料・1日20枚目安）", "https://gemini.google.com/app"),
+    ("Leonardo.ai を開く（Stickerプリセットあり・無料）", "https://leonardo.ai/"),
+    ("Bing Image Creator を開く（DALL-E 3・無料）", "https://www.bing.com/images/create"),
+    ("Ideogram を開く（文字入りデザインが得意・無料）", "https://ideogram.ai/"),
+    ("Canva を開く（Magic Media・月50クレジット無料）", "https://www.canva.com/"),
+]
 
 st.set_page_config(page_title="スタンプ企画・生成 | LINE Stamp Studio", page_icon="😊", layout="wide")
 
@@ -42,9 +56,11 @@ if st.button("🧠 スタンプ内容を企画する", type="primary", use_conta
     with st.spinner("AIがセリフ・表情・ポーズを企画しています..."):
         plan = plan_stamp_set(character, count, character.get("target_audience", ""))
     st.session_state["stamp_plan"] = plan
-    # data_editor の key を切り替えて、キャラクター/枚数を変えて再企画したときに
-    # 古いプランの編集内容が居座って表示され続けるのを防ぐ（Streamlitは同じkeyの
-    # ウィジェットには新しく渡したvalueではなく前回のウィジェット状態を優先するため）。
+    st.session_state["main_prompt"] = build_main_prompt(character)
+    st.session_state["tab_prompt"] = build_tab_prompt(character)
+    # data_editor / file_uploader の key を切り替えて、キャラクター/枚数を変えて再企画したときに
+    # 古いプランの編集内容やアップロード済み画像が居座って表示され続けるのを防ぐ（Streamlitは
+    # 同じkeyのウィジェットには新しく渡したvalueよりも前回のウィジェット状態を優先するため）。
     st.session_state["plan_version"] = st.session_state.get("plan_version", 0) + 1
     st.session_state.pop("generated_assets", None)
 
@@ -66,37 +82,108 @@ if plan:
     )
     st.session_state["stamp_plan"] = edited_plan
 
+    main_prompt = st.session_state.get("main_prompt", "")
+    tab_prompt = st.session_state.get("tab_prompt", "")
+    version = st.session_state.get("plan_version", 0)
+
     st.divider()
-    if st.button("🖼️ 画像を生成する（メイン・タブ・スタンプ全て）", type="primary", use_container_width=True):
-        backend = get_image_backend()
-        progress = st.progress(0.0, text="準備中...")
-        total_steps = len(edited_plan) + 2
+    st.subheader("画像の準備")
+    source_mode = st.radio(
+        "画像の取得方法",
+        ["🖼️ 手動で用意する（無料・推奨）", "🤖 AI画像生成APIで自動生成（要OPENAI_API_KEY・有料）"],
+        index=0,
+    )
 
-        main_prompt = (
-            f"LINE sticker main icon, cute flat-color illustration of {character.get('name')}, "
-            f"appearance: {character.get('appearance', '')}, friendly smiling pose, thick outline, "
-            "no background, centered"
+    if source_mode.startswith("🖼️"):
+        st.caption("プロンプトをコピーして下のツールに貼り付け、生成した画像を保存してからアップロードしてください。")
+        link_cols = st.columns(len(IMAGE_TOOL_LINKS))
+        for col, (label, url) in zip(link_cols, IMAGE_TOOL_LINKS):
+            col.link_button(label, url, use_container_width=True)
+
+        st.markdown("**メイン画像 (240×240)**")
+        st.code(main_prompt, language=None)
+        main_file = st.file_uploader(
+            "メイン画像をアップロード", type=["png", "jpg", "jpeg", "webp"], key=f"upload_main_{version}"
         )
-        progress.progress(1 / total_steps, text="メイン画像を生成中...")
-        main_image = process_for_main(backend.generate(main_prompt), remove_bg=remove_bg)
 
-        tab_prompt = main_prompt + ", simple close-up face only, works at very small size"
-        progress.progress(2 / total_steps, text="タブ画像を生成中...")
-        tab_image = process_for_tab(backend.generate(tab_prompt), remove_bg=remove_bg)
+        st.markdown("**タブ画像 (96×74)**")
+        st.code(tab_prompt, language=None)
+        tab_file = st.file_uploader(
+            "タブ画像をアップロード", type=["png", "jpg", "jpeg", "webp"], key=f"upload_tab_{version}"
+        )
 
-        stamp_images = []
-        for i, item in enumerate(edited_plan):
-            progress.progress((i + 3) / total_steps, text=f"スタンプ {i + 1}/{len(edited_plan)} を生成中...")
-            raw = backend.generate(item["image_prompt"])
-            stamp_images.append((item, process_for_stamp(raw, remove_bg=remove_bg)))
+        st.markdown("**スタンプ本体**")
+        stamp_files = {}
+        for item in edited_plan:
+            idx = item["index"]
+            with st.expander(f"{idx}. {item.get('phrase') or '（セリフなし）'} ／ {item.get('expression', '')}"):
+                st.code(item.get("image_prompt", ""), language=None)
+                stamp_files[idx] = st.file_uploader(
+                    f"スタンプ{idx}の画像をアップロード",
+                    type=["png", "jpg", "jpeg", "webp"],
+                    key=f"upload_stamp_{idx}_{version}",
+                )
 
-        progress.progress(1.0, text="完了！")
-        st.session_state["generated_assets"] = {
-            "main": main_image,
-            "tab": tab_image,
-            "stamps": stamp_images,
-        }
-        st.success("画像の生成・背景透過・リサイズが完了しました。")
+        st.divider()
+        if st.button("✅ アップロード画像を取り込む（背景透過・リサイズ）", type="primary", use_container_width=True):
+            missing = []
+            if main_file is None:
+                missing.append("メイン画像")
+            if tab_file is None:
+                missing.append("タブ画像")
+            for item in edited_plan:
+                if stamp_files.get(item["index"]) is None:
+                    missing.append(f"スタンプ{item['index']}")
+
+            if missing:
+                st.warning("次の画像が未アップロードです: " + "、".join(missing))
+            else:
+                progress = st.progress(0.0, text="画像を処理中...")
+                total_steps = len(edited_plan) + 2
+
+                main_image = process_for_main(load_image_file(main_file), remove_bg=remove_bg)
+                progress.progress(1 / total_steps, text="メイン画像を処理中...")
+                tab_image = process_for_tab(load_image_file(tab_file), remove_bg=remove_bg)
+                progress.progress(2 / total_steps, text="タブ画像を処理中...")
+
+                stamp_images = []
+                for i, item in enumerate(edited_plan):
+                    progress.progress((i + 3) / total_steps, text=f"スタンプ {i + 1}/{len(edited_plan)} を処理中...")
+                    img = load_image_file(stamp_files[item["index"]])
+                    stamp_images.append((item, process_for_stamp(img, remove_bg=remove_bg)))
+
+                progress.progress(1.0, text="完了！")
+                st.session_state["generated_assets"] = {
+                    "main": main_image,
+                    "tab": tab_image,
+                    "stamps": stamp_images,
+                }
+                st.success("画像の取り込み・背景透過・リサイズが完了しました。")
+    else:
+        if st.button("🖼️ 画像を生成する（メイン・タブ・スタンプ全て）", type="primary", use_container_width=True):
+            backend = get_image_backend()
+            progress = st.progress(0.0, text="準備中...")
+            total_steps = len(edited_plan) + 2
+
+            progress.progress(1 / total_steps, text="メイン画像を生成中...")
+            main_image = process_for_main(backend.generate(main_prompt, size=MAIN_IMAGE_SIZE), remove_bg=remove_bg)
+
+            progress.progress(2 / total_steps, text="タブ画像を生成中...")
+            tab_image = process_for_tab(backend.generate(tab_prompt, size=TAB_IMAGE_SIZE), remove_bg=remove_bg)
+
+            stamp_images = []
+            for i, item in enumerate(edited_plan):
+                progress.progress((i + 3) / total_steps, text=f"スタンプ {i + 1}/{len(edited_plan)} を生成中...")
+                raw = backend.generate(item["image_prompt"], size=STAMP_MAX_SIZE)
+                stamp_images.append((item, process_for_stamp(raw, remove_bg=remove_bg)))
+
+            progress.progress(1.0, text="完了！")
+            st.session_state["generated_assets"] = {
+                "main": main_image,
+                "tab": tab_image,
+                "stamps": stamp_images,
+            }
+            st.success("画像の生成・背景透過・リサイズが完了しました。")
 
 assets = st.session_state.get("generated_assets")
 if assets:
